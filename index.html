@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>日迹 · 每日记录</title>
+  <meta name="description" content="手机本地的每日工作、学习、成长、身体与收支记录。" />
+  <meta name="theme-color" content="#4e7a5f" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <link rel="icon" href="./icons/icon-192.png" />
+  <link rel="stylesheet" href="./assets/style.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="rail">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">日</div>
+        <div class="brand-text"><strong>日迹</strong><span>DAYLOG</span></div>
+      </div>
+      <nav class="nav" id="nav" aria-label="主导航"></nav>
+      <div class="rail-foot">
+        <div class="save-chip" data-role="save" data-state="idle" data-act="save-retry" title="点击可重试保存">
+          <span class="dot"></span><span class="txt">准备就绪</span>
+        </div>
+        <p class="local-note">数据只保存在这台手机</p>
+      </div>
+    </aside>
+    <main class="main" id="main"></main>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <input type="file" id="import-file" accept="application/json,.json,.daylog" hidden />
+  <script src="./assets/db.js"></script>
+  <script src="./assets/app.js"></script>
+</body>
+</html>
