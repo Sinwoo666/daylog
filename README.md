@@ -1,10 +1,14 @@
 # 日迹 · 手机本地版
 
+> **线上地址：<https://sinwoo666.github.io/daylog/>**
+>
+> 用 Android Chrome 打开这个地址。注意：`github.com/Sinwoo666/daylog` 是源码页，不能直接安装。
+
 一个只在这台手机上运行的每日记录应用。数据存在浏览器的 IndexedDB 里，不上传、不需要账号、没有服务器。
 
 ## 安装
 
-用 Android Chrome 打开部署地址，然后：
+用 Android Chrome 打开 <https://sinwoo666.github.io/daylog/>，然后：
 
 - 设置页会出现「安装到主屏幕」，点它；或者
 - Chrome 右上角菜单 →「安装应用」/「添加到主屏幕」。
