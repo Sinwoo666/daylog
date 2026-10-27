@@ -29,15 +29,29 @@ const TITLES = {
   review: '回顾',
   settings: '设置',
 };
-const EXPENSE_CATS = ['餐饮', '交通', '居住', '购物', '娱乐', '学习', '医疗', '人情', '旅行', '其他'];
-const INCOME_CATS = ['工资', '奖金', '兼职', '理财', '红包', '退款', '其他'];
 const PLAN_CATEGORIES = [
-  { id: 'housing', name: '房租及水电', budget: 2500, cats: ['居住'] },
-  { id: 'food', name: '吃饭', budget: 1200, cats: ['餐饮'] },
-  { id: 'transport', name: '交通', budget: 300, cats: ['交通'] },
-  { id: 'other', name: '日用品、社交及其他', budget: 500, cats: ['购物', '娱乐', '学习', '医疗', '人情', '旅行', '其他'] },
+  { id: 'housing', name: '房租及水电', budget: 2500 },
+  { id: 'food', name: '吃饭', budget: 1200 },
+  { id: 'transport', name: '交通', budget: 300 },
+  { id: 'other', name: '日用品、社交及其他', budget: 500 },
 ];
-const APP_VERSION = '1.2.0';
+const EXPENSE_CATS = PLAN_CATEGORIES.map((c) => c.name);
+const CATEGORY_GROUP = {
+  '房租及水电': 'housing',
+  '居住': 'housing',
+  '吃饭': 'food',
+  '餐饮': 'food',
+  '交通': 'transport',
+  '日用品、社交及其他': 'other',
+  '购物': 'other',
+  '娱乐': 'other',
+  '学习': 'other',
+  '医疗': 'other',
+  '人情': 'other',
+  '旅行': 'other',
+  '其他': 'other',
+};
+const APP_VERSION = '1.3.0';
 
 function esc(v) {
   return String(v ?? '').replace(/[&<>"']/g, (c) => ({
@@ -758,25 +772,19 @@ function financeCard(e) {
 }
 
 function financeInner(e) {
-  const items = (e.finance && e.finance.items) || [];
+  const items = ((e.finance && e.finance.items) || []).filter((t) => t.type === 'expense');
   const recent = items.slice(-3);
-  const expense = items.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-  const income = items.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-  const cats = app.finType === 'income' ? INCOME_CATS : EXPENSE_CATS;
+  const expense = items.reduce((s, t) => s + t.amount, 0);
   return `<div class="card-head">
-      <span class="dot money"></span><h2>收支</h2>
-      <span class="money-sum">支出 <b>${money(expense)}</b> · 收入 <b>${money(income)}</b></span>
+      <span class="dot money"></span><h2>支出</h2>
+      <span class="money-sum">今天 <b>${money(expense)}</b></span>
       <span class="card-hint">${items.length ? `${items.length} 笔` : '记下每一笔，月底才有数'}</span>
     </div>
     ${items.length ? `<div class="fin-list">${recent.map((t) => finRow(t, e.date)).join('')}</div>` : ''}
     ${items.length > 3 ? `<a class="fin-more" href="#/money">还有 ${items.length - 3} 笔，去账本看</a>` : ''}
     <form class="fin-add" autocomplete="off">
-      <div class="seg tiny" role="group" aria-label="收支类型">
-        <button type="button" data-act="fin-type" data-v="expense" class="${app.finType === 'expense' ? 'is-on' : ''}">支出</button>
-        <button type="button" data-act="fin-type" data-v="income" class="${app.finType === 'income' ? 'is-on' : ''}">收入</button>
-      </div>
       <input id="fin-amount" type="number" inputmode="decimal" min="0" max="9999999" step="0.01" placeholder="金额" aria-label="金额">
-      <select id="fin-cat" aria-label="分类">${cats.map((c) => `<option>${c}</option>`).join('')}</select>
+      <select id="fin-cat" aria-label="分类">${EXPENSE_CATS.map((c) => `<option>${c}</option>`).join('')}</select>
       <input id="fin-note" type="text" maxlength="40" placeholder="备注（可选）" aria-label="备注">
       <button class="btn primary" type="submit">记一笔</button>
     </form>`;
@@ -810,9 +818,9 @@ function addTransaction() {
   if (!e.finance) e.finance = { items: [] };
   e.finance.items.push({
     id: Math.random().toString(36).slice(2, 9),
-    type: app.finType,
+    type: 'expense',
     amount,
-    category: ($('#fin-cat') || {}).value || '其他',
+    category: ($('#fin-cat') || {}).value || EXPENSE_CATS[0],
     note: ($('#fin-note') || {}).value.trim(),
   });
   touch(e);
@@ -826,7 +834,7 @@ function addTransaction() {
     const next = $('#fin-amount');
     if (next) next.focus();
   }
-  toast(app.finType === 'income' ? '已记一笔收入' : '已记一笔支出');
+  toast('已记一笔支出');
 }
 
 function deleteTransaction(date, id) {
@@ -1044,51 +1052,46 @@ function getPlan() {
   return {
     income: isFinite(income) && income >= 0 ? income : 6500,
     savings: isFinite(savings) && savings >= 0 ? savings : 2000,
-    startMonth: /^\d{4}-\d{2}$/.test(src.startMonth || '') ? src.startMonth : todayStr().slice(0, 7),
     categories,
   };
 }
 
 function planSummary(prefix) {
   const plan = getPlan();
-  const { items, expense, income } = collectFinance(prefix);
+  const { items } = collectFinance(prefix);
+  const expenses = items.filter((t) => t.type === 'expense');
   const spent = {};
   plan.categories.forEach((c) => { spent[c.id] = 0; });
-  items.forEach((t) => {
-    if (t.type !== 'expense') return;
-    const cat = plan.categories.find((c) => c.cats.includes(t.category)) || plan.categories[plan.categories.length - 1];
-    spent[cat.id] = (spent[cat.id] || 0) + t.amount;
+  expenses.forEach((t) => {
+    const id = CATEGORY_GROUP[t.category] || 'other';
+    spent[id] = (spent[id] || 0) + t.amount;
   });
+  const expense = expenses.reduce((s, t) => s + t.amount, 0);
   const budgetTotal = plan.categories.reduce((s, c) => s + c.budget, 0);
-  const effectiveIncome = income > 0 ? income : plan.income;
-  const saved = effectiveIncome - expense;
   return {
     plan,
-    items,
+    items: expenses,
     expense,
-    income,
-    effectiveIncome,
     spent,
     budgetTotal,
-    saved,
     target: plan.savings,
-    hasData: items.length > 0,
+    hasData: expenses.length > 0,
   };
 }
 
 function planCard(s) {
   const plan = s.plan;
-  const used = s.hasData ? s.expense : 0;
+  const used = s.expense;
   const remaining = s.budgetTotal - used;
   const over = used > s.budgetTotal;
   const pct = s.budgetTotal > 0 ? Math.min(100, (used / s.budgetTotal) * 100) : 0;
   const total = s.budgetTotal + s.target;
   const status = over
-    ? `超出预算 ${money(-remaining)}，预计只能存 ${money(Math.max(0, s.target + remaining))}`
+    ? `超出预算 ${money(-remaining)}，本月只能存 ${money(Math.max(0, s.target + remaining))}`
     : `预算内 · 按计划存 ${money(s.target)}`;
   return `<section class="card span2 plan-card">
     <div class="card-head">
-      <span class="dot amber"></span><h2>存款计划</h2>
+      <span class="dot amber"></span><h2>本月预算</h2>
       <a class="card-link" href="#/settings">调整</a>
     </div>
     <div class="plan-hero">
@@ -1098,9 +1101,7 @@ function planCard(s) {
         <span class="plan-target">预算 ${money(s.budgetTotal)}</span>
       </div>
       <div class="plan-progress ${over ? 'over' : ''}"><i style="width:${pct.toFixed(1)}%"></i></div>
-      <p class="plan-note">${s.hasData
-        ? `已花 ${money(used)} / 预算 ${money(s.budgetTotal)}${s.income > 0 ? ` · 收入 ${money(s.income)}` : ''}`
-        : '记下这个月的第一笔支出，开始跟踪预算。'}</p>
+      <p class="plan-note">${s.hasData ? `已花 ${money(used)} / 预算 ${money(s.budgetTotal)}` : '记下这个月的第一笔支出，开始跟踪预算。'}</p>
       <p class="plan-status ${over ? 'over' : ''}">${status}</p>
     </div>
     <div class="plan-cats">
@@ -1114,10 +1115,6 @@ function planCard(s) {
         </div>`;
       }).join('')}
     </div>
-    <div class="plan-projection">
-      <div><span>6 个月</span><strong>${money(plan.savings * 6)}</strong></div>
-      <div><span>12 个月</span><strong>${money(plan.savings * 12)}</strong></div>
-    </div>
     <p class="plan-hint">${Math.abs(total - plan.income) < 0.5
       ? `月收入 ${money(plan.income)} = 支出预算 ${money(s.budgetTotal)} + 储蓄 ${money(plan.savings)}`
       : `月收入 ${money(plan.income)} · 预算+储蓄 ${money(total)}（${total > plan.income ? '多' : '少'} ${money(Math.abs(total - plan.income))}）`}</p>
@@ -1125,33 +1122,26 @@ function planCard(s) {
 }
 
 function moneyAddForm() {
-  const cats = app.finType === 'income' ? INCOME_CATS : EXPENSE_CATS;
   return `<form class="fin-add money-add" autocomplete="off">
-    <div class="seg tiny" role="group" aria-label="收支类型">
-      <button type="button" data-act="fin-type" data-v="expense" class="${app.finType === 'expense' ? 'is-on' : ''}">支出</button>
-      <button type="button" data-act="fin-type" data-v="income" class="${app.finType === 'income' ? 'is-on' : ''}">收入</button>
-    </div>
     <input id="fin-amount" type="number" inputmode="decimal" min="0" max="9999999" step="0.01" placeholder="金额" aria-label="金额">
-    <select id="fin-cat" aria-label="分类">${cats.map((c) => `<option>${c}</option>`).join('')}</select>
+    <select id="fin-cat" aria-label="分类">${EXPENSE_CATS.map((c) => `<option>${c}</option>`).join('')}</select>
     <input id="fin-note" type="text" maxlength="40" placeholder="备注（可选）" aria-label="备注">
     <button class="btn primary" type="submit">记一笔</button>
   </form>`;
 }
 
 function moneyGroups(items) {
-  const filtered = app.finFilter === 'all' ? items : items.filter((t) => t.type === app.finFilter);
   const groups = {};
-  filtered.forEach((t) => { (groups[t.date] = groups[t.date] || []).push(t); });
+  items.forEach((t) => { (groups[t.date] = groups[t.date] || []).push(t); });
   const groupList = Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
   if (!groupList.length) return '<p class="empty-note">还没有记录，先记一笔</p>';
   return groupList.map(([date, list]) => {
     const d = parseDate(date);
-    const exp = list.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-    const inc = list.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    const exp = list.reduce((s, t) => s + t.amount, 0);
     return `<div class="fin-day">
       <div class="fin-day-head">
         <button type="button" data-act="open-day" data-date="${date}">${d.getMonth() + 1} 月 ${d.getDate()} 日 · ${WEEKDAYS[d.getDay()]}</button>
-        <span class="totals">${exp ? `支出 ${money(exp)}` : ''}${exp && inc ? ' · ' : ''}${inc ? `收入 ${money(inc)}` : ''}</span>
+        <span class="totals">支出 ${money(exp)}</span>
       </div>
       ${list.map((t) => finRow(t, date)).join('')}
     </div>`;
@@ -1162,12 +1152,12 @@ function moneyView() {
   const prefix = app.month || todayStr().slice(0, 7);
   const [y, m] = prefix.split('-').map(Number);
   const s = planSummary(prefix);
-  const balance = s.income - s.expense;
+  const remaining = s.budgetTotal - s.expense;
 
   return `${simpleHead(
     '账本',
     `${y} 年 ${m} 月`,
-    `收入 <b>${money(s.income)}</b> · 支出 <b>${money(s.expense)}</b> · 结余 <b>${money(balance)}</b>`,
+    `已花 <b>${money(s.expense)}</b> · 预算 <b>${money(s.budgetTotal)}</b> · 还能花 <b>${money(remaining)}</b>`,
     `<button class="icon-btn" data-act="prev-month" aria-label="上个月">${icon('left')}</button>
      <button class="btn ghost" data-act="this-month">本月</button>
      <button class="icon-btn" data-act="next-month" aria-label="下个月">${icon('right')}</button>
@@ -1176,11 +1166,7 @@ function moneyView() {
   <div class="grid">
     ${planCard(s)}
     <section class="card span2">
-      <div class="card-head"><span class="dot"></span><h2>明细</h2>
-        <div class="seg tiny" style="margin-left:auto">
-          ${[['all', '全部'], ['expense', '支出'], ['income', '收入']].map(([v, l]) => `<button type="button" data-act="fin-filter" data-v="${v}" class="${app.finFilter === v ? 'is-on' : ''}">${l}</button>`).join('')}
-        </div>
-      </div>
+      <div class="card-head"><span class="dot"></span><h2>支出明细</h2><span class="card-hint">${s.items.length} 笔</span></div>
       ${moneyAddForm()}
       ${moneyGroups(s.items)}
     </section>
@@ -1389,10 +1375,7 @@ function weekCard() {
   const moods = entries.map((e) => e.mood).filter(Boolean);
   const sleeps = entries.map((e) => e.sleep).filter((v) => typeof v === 'number');
   const exercise = entries.reduce((s, e) => s + (e.exerciseMin || 0), 0);
-  const fin = entries.reduce((acc, e) => {
-    (e.finance.items || []).forEach((t) => { if (t.type === 'income') acc.income += t.amount; else acc.expense += t.amount; });
-    return acc;
-  }, { expense: 0, income: 0 });
+  const fin = entries.reduce((s, e) => s + (e.finance.items || []).filter((t) => t.type === 'expense').reduce((x, t) => x + t.amount, 0), 0);
   const review = (app.db.reviews[monday] && app.db.reviews[monday].text) || '';
   const fmtD = (s) => { const d = parseDate(s); return `${d.getMonth() + 1}月${d.getDate()}日`; };
 
@@ -1411,7 +1394,7 @@ function weekCard() {
       ${statBlock(fmt1(avg(sleeps)), '小时', '平均睡眠')}
       ${statBlock(exercise, '分钟', '运动')}
     </div>
-    <p class="week-money">本周支出 ${money(fin.expense)} · 结余 ${money(fin.income - fin.expense)}</p>
+    <p class="week-money">本周支出 ${money(fin)}</p>
     <textarea class="journal" data-bind="review" placeholder="这一周什么做得好？什么卡住了？如果只改一件事，下周改什么？">${esc(review)}</textarea>
   </section>`;
 }
@@ -1542,9 +1525,6 @@ function settingsView() {
       </div>
       <div class="plan-form">
         ${plan.categories.map((c) => `<label class="field"><span class="label">${esc(c.name)}</span><input type="number" inputmode="numeric" min="0" step="50" data-plan="cat:${c.id}" value="${c.budget}" aria-label="${esc(c.name)}预算"></label>`).join('')}
-      </div>
-      <div class="plan-form">
-        <label class="field"><span class="label">开始月份</span><input type="month" data-plan="startMonth" value="${esc(plan.startMonth)}" aria-label="开始月份"></label>
       </div>
       <p class="plan-total" data-role="plan-total"></p>
     </section>
