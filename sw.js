@@ -2,7 +2,7 @@
    让安装后的应用在断网时也能打开。
    每次发布新版本时，把 VERSION 加一，旧缓存会自动清理。 */
 
-const VERSION = 'daylog-v1';
+const VERSION = 'daylog-v3';
 const ASSETS = [
   './',
   './index.html',

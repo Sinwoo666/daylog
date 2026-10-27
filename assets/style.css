@@ -747,6 +747,14 @@ input[type="time"] { min-width: 92px; }
 .fin-add #fin-note { flex: 1 1 160px; min-width: 130px; }
 .fin-add .btn { flex: 0 0 auto; }
 
+.fin-more {
+  display: inline-block;
+  margin: 2px 0 10px;
+  font-size: 11.5px;
+  color: var(--accent);
+  text-decoration: none;
+}
+
 /* ---------------- 习惯与标签 ---------------- */
 
 .chips { display: flex; flex-wrap: wrap; gap: 7px; }
@@ -1120,6 +1128,245 @@ input[type="time"] { min-width: 92px; }
 .add-row .btn { flex: 0 0 auto; }
 
 .about-text { max-width: 78ch; line-height: 1.9; }
+
+/* ---------------- 存款计划 / 精简版 ---------------- */
+
+.card-link {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.plan-hero { margin-top: 2px; }
+
+.plan-hero-main {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.plan-label { font-size: 11.5px; color: var(--muted); }
+
+.plan-amount {
+  font-size: 34px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-amount.empty { color: var(--muted); font-weight: 400; }
+.plan-amount.over { color: var(--rose); }
+
+.plan-status {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.plan-status.over { color: var(--rose); }
+.plan-progress.over i { background: var(--rose); }
+
+.plan-target { font-size: 12px; color: var(--muted); }
+
+.plan-progress {
+  height: 9px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.plan-progress i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--amber);
+  transition: width 0.3s ease;
+}
+
+.plan-progress i.done { background: var(--accent); }
+
+.plan-note {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.plan-cats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 18px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--line);
+}
+
+.plan-cat-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 5px;
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+
+.plan-cat-top span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+.plan-cat-top span.over { color: var(--rose); }
+
+.plan-cat-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.plan-cat-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.plan-cat-bar.over i { background: var(--rose); }
+
+.plan-projection {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--line);
+}
+
+.plan-projection div {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.plan-projection span {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.plan-projection strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 20px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-hint { margin-top: 10px; font-size: 11px; color: var(--muted); }
+
+.plan-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.plan-form .field { margin: 0; }
+
+.plan-total {
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.money-add {
+  margin-bottom: 14px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.month-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.week-money {
+  margin: 10px 0 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.more-details summary,
+.trend-details summary {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.more-details summary::-webkit-details-marker,
+.trend-details summary::-webkit-details-marker { display: none; }
+
+.more-details summary::after,
+.trend-details summary::after {
+  content: '展开';
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--accent);
+}
+
+.more-details[open] summary::after,
+.trend-details[open] summary::after { content: '收起'; }
+
+.more-title { font-size: 14px; font-weight: 650; }
+.more-hint { font-size: 11.5px; color: var(--muted); }
+
+.more-body,
+.trend-body {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+}
+
+.more-body h3 {
+  margin: 18px 0 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.more-body h3:first-child { margin-top: 0; }
+.more-body .field + .field { margin-top: 12px; }
+
+.chart-block + .chart-block {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--line);
+}
+
+.chart-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.chart-note { margin-left: auto; font-size: 11px; color: var(--muted); }
+
+@media (max-width: 760px) {
+  .plan-cats { grid-template-columns: minmax(0, 1fr); }
+
+  .plan-amount { font-size: 30px; }
+
+  .money-add .btn,
+  .fin-add .btn { flex: 1 1 100%; }
+}
 
 /* ---------------- 手机本地版补充 ---------------- */
 

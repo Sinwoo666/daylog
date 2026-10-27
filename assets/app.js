@@ -20,23 +20,24 @@ const MOODS = [
 ];
 const NAV = [
   ['today', '今日', 'pen'],
-  ['calendar', '日历', 'calendar'],
-  ['finance', '账本', 'wallet'],
-  ['trend', '趋势', 'chart'],
+  ['money', '账本', 'wallet'],
   ['review', '回顾', 'compass'],
-  ['settings', '设置', 'sliders'],
 ];
 const TITLES = {
   today: '今日',
-  calendar: '日历',
-  finance: '账本',
-  trend: '趋势',
+  money: '账本',
   review: '回顾',
   settings: '设置',
 };
 const EXPENSE_CATS = ['餐饮', '交通', '居住', '购物', '娱乐', '学习', '医疗', '人情', '旅行', '其他'];
 const INCOME_CATS = ['工资', '奖金', '兼职', '理财', '红包', '退款', '其他'];
-const APP_VERSION = '1.1.0';
+const PLAN_CATEGORIES = [
+  { id: 'housing', name: '房租及水电', budget: 2500, cats: ['居住'] },
+  { id: 'food', name: '吃饭', budget: 1200, cats: ['餐饮'] },
+  { id: 'transport', name: '交通', budget: 300, cats: ['交通'] },
+  { id: 'other', name: '日用品、社交及其他', budget: 500, cats: ['购物', '娱乐', '学习', '医疗', '人情', '旅行', '其他'] },
+];
+const APP_VERSION = '1.2.0';
 
 function esc(v) {
   return String(v ?? '').replace(/[&<>"']/g, (c) => ({
@@ -360,6 +361,10 @@ function saveChipHtml() {
   return `<span class="save-chip small" data-role="save" data-state="${app.status}" data-act="save-retry" title="点击可重试保存"><span class="dot"></span><span class="txt">准备就绪</span></span>`;
 }
 
+function gearLink() {
+  return `<a class="icon-btn" href="#/settings" aria-label="设置" title="设置">${icon('sliders')}</a>`;
+}
+
 function simpleHead(eyebrow, title, sub, actions) {
   return `<header class="page-head">
     <div class="head-title">
@@ -470,19 +475,121 @@ function todayView() {
     streak ? `连续记录 <b>${streak}</b> 天 · 本月 <b>${monthCount}</b> 天` : '写下今天的第一笔，就开始了',
     `<button class="icon-btn" data-act="prev-day" aria-label="前一天" title="前一天">${icon('left')}</button>
      <button class="btn ghost" data-act="today" ${isToday ? 'disabled' : ''}>今天</button>
-     <button class="icon-btn" data-act="next-day" aria-label="后一天" title="后一天" ${isToday ? 'disabled' : ''}>${icon('right')}</button>`
+     <button class="icon-btn" data-act="next-day" aria-label="后一天" title="后一天" ${isToday ? 'disabled' : ''}>${icon('right')}</button>
+     ${gearLink()}`
   )}
   ${welcomeHtml()}
   ${backupBannerHtml()}
   <div class="grid">
-    ${stateCard(e)}
+    ${todayCoreCard(e)}
     ${mitCard(e)}
     ${financeCard(e)}
-    ${app.compact ? '' : [workCard(e), studyCard(e), reflectCard(e), growthCard(e), metaCard(e)].join('')}
-    <div class="detail-toggle span2">
-      <button class="btn ghost" data-act="toggle-detail">${app.compact ? '展开详细记录 · 工作 / 学习 / 成长 / 感悟 / 习惯' : '收起详细记录'}</button>
-    </div>
+    ${noteCard(e)}
+    ${moreCard(e)}
   </div>`;
+}
+
+function todayCoreCard(e) {
+  return `<section class="card span2">
+    <div class="card-head"><span class="dot"></span><h2>今天</h2><span class="card-hint">点一下心情，写一句</span></div>
+    <div class="state-top">
+      <div class="field">
+        <span class="label">心情</span>
+        <div class="moods">${MOODS.map((m) => `<button type="button" class="mood ${e.mood === m.v ? 'on' : ''}" data-act="mood" data-v="${m.v}" aria-pressed="${e.mood === m.v}" aria-label="心情：${m.label}" title="${m.label}">${m.e}</button>`).join('')}</div>
+      </div>
+      <div class="field">
+        <span class="label">精力</span>
+        <div class="energies">${[1, 2, 3, 4, 5].map((v) => `<button type="button" class="energy ${e.energy >= v ? 'on' : ''}" data-act="energy" data-v="${v}" aria-label="精力 ${v} / 5" title="精力 ${v} / 5"><i></i></button>`).join('')}</div>
+      </div>
+    </div>
+    <div class="field wide">
+      <span class="label">一句话</span>
+      <input class="headline-input" type="text" data-bind="headline" value="${esc(e.headline)}" maxlength="120" placeholder="如果只能用一句话记住今天，会是什么？" aria-label="今日一句话">
+    </div>
+  </section>`;
+}
+
+function noteCard(e) {
+  return `<section class="card span2">
+    <div class="card-head"><span class="dot rose"></span><h2>随手记</h2><span class="card-hint">想法、工作、学习，都可以</span></div>
+    <textarea class="journal" data-bind="insight" placeholder="今天做了什么、想明白了什么…">${esc(e.insight)}</textarea>
+  </section>`;
+}
+
+function moreCard(e) {
+  const has = !!(e.sleep || e.exerciseMin || e.weight || e.body || e.work || e.study || e.learn || e.growth || e.milestone || e.highlight || e.grateful || e.improve || (e.tags || []).length);
+  return `<section class="card span2">
+    <details class="more-details">
+      <summary>
+        <span class="more-title">更多记录</span>
+        <span class="more-hint">${has ? '已填写' : '睡眠 / 运动 / 工作 / 学习 / 成长'}</span>
+      </summary>
+      <div class="more-body">
+        <h3>身体</h3>
+        <div class="state-top">
+          <div class="field">
+            <span class="label">睡眠</span>
+            <div class="mini-group">
+              <label class="mini"><input type="number" inputmode="decimal" data-bind="sleep" data-kind="num" step="0.5" min="0" max="24" value="${e.sleep ?? ''}" placeholder="7.5" aria-label="睡眠小时数"><span>小时</span></label>
+              <label class="mini"><input type="time" data-bind="bed" value="${esc(e.bed)}" aria-label="入睡时间"><span>入睡</span></label>
+            </div>
+          </div>
+          <div class="field">
+            <span class="label">运动</span>
+            <div class="mini-group">
+              <label class="mini"><input type="text" data-bind="exerciseType" value="${esc(e.exerciseType)}" placeholder="跑步 / 力量 / 散步" maxlength="20" aria-label="运动类型"></label>
+              <label class="mini"><input type="number" inputmode="numeric" data-bind="exerciseMin" data-kind="num" min="0" max="1440" step="5" value="${e.exerciseMin ?? ''}" placeholder="30" aria-label="运动分钟数"><span>分钟</span></label>
+            </div>
+          </div>
+          <div class="field">
+            <span class="label">体重</span>
+            <label class="mini"><input type="number" inputmode="decimal" data-bind="weight" data-kind="num" step="0.1" min="0" max="500" value="${e.weight ?? ''}" placeholder="65.0" aria-label="体重"><span>kg</span></label>
+          </div>
+        </div>
+        <div class="field wide">
+          <span class="label">身体感受</span>
+          <textarea rows="1" data-bind="body" placeholder="睡眠质量、疼痛、饮食、久坐、肩颈…">${esc(e.body)}</textarea>
+        </div>
+        <h3>分项</h3>
+        <div class="field">
+          <span class="label">工作</span>
+          <textarea data-bind="work" placeholder="今天做了什么、推进到哪…">${esc(e.work)}</textarea>
+        </div>
+        <div class="field wide">
+          <span class="label">学习</span>
+          <textarea data-bind="study" placeholder="读了什么、练了什么…">${esc(e.study)}</textarea>
+        </div>
+        <div class="field wide">
+          <span class="label">今天的收获</span>
+          <input type="text" data-bind="learn" value="${esc(e.learn)}" maxlength="200" placeholder="一条以后用得上的新知或方法">
+        </div>
+        <div class="field wide">
+          <span class="label">成长</span>
+          <textarea data-bind="growth" placeholder="今天比昨天进步的一点…">${esc(e.growth)}</textarea>
+        </div>
+        <div class="field wide">
+          <span class="label">里程碑</span>
+          <input type="text" data-bind="milestone" value="${esc(e.milestone)}" maxlength="200" placeholder="值得标记的一步（不常有）">
+        </div>
+        <h3>其他</h3>
+        <div class="field">
+          <span class="label">今日高光</span>
+          <input type="text" data-bind="highlight" value="${esc(e.highlight)}" maxlength="120" placeholder="最满意的一刻">
+        </div>
+        <div class="field wide">
+          <span class="label">想感谢的</span>
+          <input type="text" data-bind="grateful" value="${esc(e.grateful)}" maxlength="120" placeholder="一个人或一件小事">
+        </div>
+        <div class="field wide">
+          <span class="label">明天改进一点</span>
+          <input type="text" data-bind="improve" value="${esc(e.improve)}" maxlength="120" placeholder="只改一件就好">
+        </div>
+        <h3>标签</h3>
+        <div class="tagbox" data-role="tags">${tagChips(e)}<input id="tag-input" list="tag-suggest" placeholder="输入后回车" maxlength="20" aria-label="添加标签"></div>
+        <datalist id="tag-suggest">${allTags().map((t) => `<option value="${esc(t)}"></option>`).join('')}</datalist>
+      </div>
+    </details>
+  </section>`;
 }
 
 function backupBannerHtml() {
@@ -505,7 +612,7 @@ function welcomeHtml() {
   return `<div class="welcome">
     <div>
       <strong>欢迎来到日迹</strong>
-      <p>每天 3 分钟：点一下心情、写三件要事、记几笔收支、留一句话。其余都可以留白。</p>
+      <p>每天 3 分钟：点心情 → 写三件事 → 留一句话 → 记一笔。其他都在「更多记录」里。</p>
     </div>
     <button class="btn" data-act="dismiss-welcome">知道了</button>
   </div>`;
@@ -652,6 +759,7 @@ function financeCard(e) {
 
 function financeInner(e) {
   const items = (e.finance && e.finance.items) || [];
+  const recent = items.slice(-3);
   const expense = items.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
   const income = items.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const cats = app.finType === 'income' ? INCOME_CATS : EXPENSE_CATS;
@@ -660,7 +768,8 @@ function financeInner(e) {
       <span class="money-sum">支出 <b>${money(expense)}</b> · 收入 <b>${money(income)}</b></span>
       <span class="card-hint">${items.length ? `${items.length} 笔` : '记下每一笔，月底才有数'}</span>
     </div>
-    ${items.length ? `<div class="fin-list">${items.map((t) => finRow(t, e.date)).join('')}</div>` : ''}
+    ${items.length ? `<div class="fin-list">${recent.map((t) => finRow(t, e.date)).join('')}</div>` : ''}
+    ${items.length > 3 ? `<a class="fin-more" href="#/money">还有 ${items.length - 3} 笔，去账本看</a>` : ''}
     <form class="fin-add" autocomplete="off">
       <div class="seg tiny" role="group" aria-label="收支类型">
         <button type="button" data-act="fin-type" data-v="expense" class="${app.finType === 'expense' ? 'is-on' : ''}">支出</button>
@@ -708,9 +817,15 @@ function addTransaction() {
   });
   touch(e);
   scheduleSave();
-  refreshFinance();
-  const next = $('#fin-amount');
-  if (next) next.focus();
+  if (app.view === 'money') {
+    render();
+    const next = $('#fin-amount');
+    if (next) next.focus();
+  } else {
+    refreshFinance();
+    const next = $('#fin-amount');
+    if (next) next.focus();
+  }
   toast(app.finType === 'income' ? '已记一笔收入' : '已记一笔支出');
 }
 
@@ -720,14 +835,14 @@ function deleteTransaction(date, id) {
   e.finance.items = e.finance.items.filter((t) => t.id !== id);
   touch(e);
   scheduleSave();
-  if (app.view === 'finance') render();
+  if (app.view === 'money') render();
   else refreshFinance();
   toast('已删除');
 }
 
 /* ---------------- 视图：日历 ---------------- */
 
-function calendarView() {
+function legacyCalendarView() {
   const monthStr = app.month || app.date.slice(0, 7);
   const [y, m] = monthStr.split('-').map(Number);
   const first = new Date(y, m - 1, 1);
@@ -823,7 +938,7 @@ function collectFinance(prefix) {
   return { items, expense, income };
 }
 
-function financeView() {
+function legacyFinanceView() {
   const prefix = app.month || todayStr().slice(0, 7);
   const [y, m] = prefix.split('-').map(Number);
   const total = daysInMonth(prefix);
@@ -915,9 +1030,166 @@ function financeView() {
   </div>`;
 }
 
+/* ---------------- 存款计划 ---------------- */
+
+function getPlan() {
+  const src = app.db.settings.plan && typeof app.db.settings.plan === 'object' ? app.db.settings.plan : {};
+  const categories = PLAN_CATEGORIES.map((def) => {
+    const found = Array.isArray(src.categories) ? src.categories.find((c) => c && c.id === def.id) : null;
+    const budget = found ? Number(found.budget) : def.budget;
+    return { ...def, budget: isFinite(budget) && budget >= 0 ? budget : def.budget };
+  });
+  const income = Number(src.income);
+  const savings = Number(src.savings);
+  return {
+    income: isFinite(income) && income >= 0 ? income : 6500,
+    savings: isFinite(savings) && savings >= 0 ? savings : 2000,
+    startMonth: /^\d{4}-\d{2}$/.test(src.startMonth || '') ? src.startMonth : todayStr().slice(0, 7),
+    categories,
+  };
+}
+
+function planSummary(prefix) {
+  const plan = getPlan();
+  const { items, expense, income } = collectFinance(prefix);
+  const spent = {};
+  plan.categories.forEach((c) => { spent[c.id] = 0; });
+  items.forEach((t) => {
+    if (t.type !== 'expense') return;
+    const cat = plan.categories.find((c) => c.cats.includes(t.category)) || plan.categories[plan.categories.length - 1];
+    spent[cat.id] = (spent[cat.id] || 0) + t.amount;
+  });
+  const budgetTotal = plan.categories.reduce((s, c) => s + c.budget, 0);
+  const effectiveIncome = income > 0 ? income : plan.income;
+  const saved = effectiveIncome - expense;
+  return {
+    plan,
+    items,
+    expense,
+    income,
+    effectiveIncome,
+    spent,
+    budgetTotal,
+    saved,
+    target: plan.savings,
+    hasData: items.length > 0,
+  };
+}
+
+function planCard(s) {
+  const plan = s.plan;
+  const used = s.hasData ? s.expense : 0;
+  const remaining = s.budgetTotal - used;
+  const over = used > s.budgetTotal;
+  const pct = s.budgetTotal > 0 ? Math.min(100, (used / s.budgetTotal) * 100) : 0;
+  const total = s.budgetTotal + s.target;
+  const status = over
+    ? `超出预算 ${money(-remaining)}，预计只能存 ${money(Math.max(0, s.target + remaining))}`
+    : `预算内 · 按计划存 ${money(s.target)}`;
+  return `<section class="card span2 plan-card">
+    <div class="card-head">
+      <span class="dot amber"></span><h2>存款计划</h2>
+      <a class="card-link" href="#/settings">调整</a>
+    </div>
+    <div class="plan-hero">
+      <div class="plan-hero-main">
+        <span class="plan-label">${over ? '本月超支' : '本月还能花'}</span>
+        <strong class="plan-amount ${over ? 'over' : ''}">${money(over ? -remaining : remaining)}</strong>
+        <span class="plan-target">预算 ${money(s.budgetTotal)}</span>
+      </div>
+      <div class="plan-progress ${over ? 'over' : ''}"><i style="width:${pct.toFixed(1)}%"></i></div>
+      <p class="plan-note">${s.hasData
+        ? `已花 ${money(used)} / 预算 ${money(s.budgetTotal)}${s.income > 0 ? ` · 收入 ${money(s.income)}` : ''}`
+        : '记下这个月的第一笔支出，开始跟踪预算。'}</p>
+      <p class="plan-status ${over ? 'over' : ''}">${status}</p>
+    </div>
+    <div class="plan-cats">
+      ${plan.categories.map((c) => {
+        const sp = s.spent[c.id] || 0;
+        const p = c.budget > 0 ? Math.min(100, (sp / c.budget) * 100) : 0;
+        const catOver = sp > c.budget;
+        return `<div class="plan-cat">
+          <div class="plan-cat-top"><span>${esc(c.name)}</span><span class="${catOver ? 'over' : ''}">${money(sp)} / ${money(c.budget)}</span></div>
+          <div class="plan-cat-bar ${catOver ? 'over' : ''}"><i style="width:${p.toFixed(1)}%"></i></div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="plan-projection">
+      <div><span>6 个月</span><strong>${money(plan.savings * 6)}</strong></div>
+      <div><span>12 个月</span><strong>${money(plan.savings * 12)}</strong></div>
+    </div>
+    <p class="plan-hint">${Math.abs(total - plan.income) < 0.5
+      ? `月收入 ${money(plan.income)} = 支出预算 ${money(s.budgetTotal)} + 储蓄 ${money(plan.savings)}`
+      : `月收入 ${money(plan.income)} · 预算+储蓄 ${money(total)}（${total > plan.income ? '多' : '少'} ${money(Math.abs(total - plan.income))}）`}</p>
+  </section>`;
+}
+
+function moneyAddForm() {
+  const cats = app.finType === 'income' ? INCOME_CATS : EXPENSE_CATS;
+  return `<form class="fin-add money-add" autocomplete="off">
+    <div class="seg tiny" role="group" aria-label="收支类型">
+      <button type="button" data-act="fin-type" data-v="expense" class="${app.finType === 'expense' ? 'is-on' : ''}">支出</button>
+      <button type="button" data-act="fin-type" data-v="income" class="${app.finType === 'income' ? 'is-on' : ''}">收入</button>
+    </div>
+    <input id="fin-amount" type="number" inputmode="decimal" min="0" max="9999999" step="0.01" placeholder="金额" aria-label="金额">
+    <select id="fin-cat" aria-label="分类">${cats.map((c) => `<option>${c}</option>`).join('')}</select>
+    <input id="fin-note" type="text" maxlength="40" placeholder="备注（可选）" aria-label="备注">
+    <button class="btn primary" type="submit">记一笔</button>
+  </form>`;
+}
+
+function moneyGroups(items) {
+  const filtered = app.finFilter === 'all' ? items : items.filter((t) => t.type === app.finFilter);
+  const groups = {};
+  filtered.forEach((t) => { (groups[t.date] = groups[t.date] || []).push(t); });
+  const groupList = Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
+  if (!groupList.length) return '<p class="empty-note">还没有记录，先记一笔</p>';
+  return groupList.map(([date, list]) => {
+    const d = parseDate(date);
+    const exp = list.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    const inc = list.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    return `<div class="fin-day">
+      <div class="fin-day-head">
+        <button type="button" data-act="open-day" data-date="${date}">${d.getMonth() + 1} 月 ${d.getDate()} 日 · ${WEEKDAYS[d.getDay()]}</button>
+        <span class="totals">${exp ? `支出 ${money(exp)}` : ''}${exp && inc ? ' · ' : ''}${inc ? `收入 ${money(inc)}` : ''}</span>
+      </div>
+      ${list.map((t) => finRow(t, date)).join('')}
+    </div>`;
+  }).join('');
+}
+
+function moneyView() {
+  const prefix = app.month || todayStr().slice(0, 7);
+  const [y, m] = prefix.split('-').map(Number);
+  const s = planSummary(prefix);
+  const balance = s.income - s.expense;
+
+  return `${simpleHead(
+    '账本',
+    `${y} 年 ${m} 月`,
+    `收入 <b>${money(s.income)}</b> · 支出 <b>${money(s.expense)}</b> · 结余 <b>${money(balance)}</b>`,
+    `<button class="icon-btn" data-act="prev-month" aria-label="上个月">${icon('left')}</button>
+     <button class="btn ghost" data-act="this-month">本月</button>
+     <button class="icon-btn" data-act="next-month" aria-label="下个月">${icon('right')}</button>
+     ${gearLink()}`
+  )}
+  <div class="grid">
+    ${planCard(s)}
+    <section class="card span2">
+      <div class="card-head"><span class="dot"></span><h2>明细</h2>
+        <div class="seg tiny" style="margin-left:auto">
+          ${[['all', '全部'], ['expense', '支出'], ['income', '收入']].map(([v, l]) => `<button type="button" data-act="fin-filter" data-v="${v}" class="${app.finFilter === v ? 'is-on' : ''}">${l}</button>`).join('')}
+        </div>
+      </div>
+      ${moneyAddForm()}
+      ${moneyGroups(s.items)}
+    </section>
+  </div>`;
+}
+
 /* ---------------- 视图：趋势 ---------------- */
 
-function trendView() {
+function legacyTrendView() {
   const days = [];
   for (let i = 29; i >= 0; i -= 1) days.push(addDays(todayStr(), -i));
   const present = recordedEntries();
@@ -993,7 +1265,7 @@ function trendView() {
 
 /* ---------------- 视图：周回顾 ---------------- */
 
-function reviewView() {
+function legacyReviewView() {
   const monday = mondayOf(todayStr(), app.weekOffset);
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
   app.reviewKey = monday;
@@ -1067,9 +1339,138 @@ function weekNumber(s) {
   return Math.ceil(((d - start) / 86400000 + start.getDay() + 1) / 7);
 }
 
+/* ---------------- 视图：回顾 ---------------- */
+
+function calendarCard(prefix) {
+  const [y, m] = prefix.split('-').map(Number);
+  const first = new Date(y, m - 1, 1);
+  const lead = (first.getDay() + 6) % 7;
+  const total = new Date(y, m, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < lead; i += 1) cells.push(null);
+  for (let d = 1; d <= total; d += 1) cells.push({ d, ds: `${y}-${pad(m)}-${pad(d)}` });
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const monthEntries = recordedEntries().filter((e) => e.date.startsWith(prefix));
+  const cellHtml = cells.map((c) => {
+    if (!c) return '<div class="cal-cell is-empty" aria-hidden="true"></div>';
+    const e = app.db.entries[c.ds];
+    const has = e && hasContent(e);
+    const mood = has ? e.mood : 0;
+    const hl = has ? (e.headline || firstText(e)) : '';
+    const cls = [has ? 'has' : '', c.ds === app.date ? 'is-selected' : '', c.ds === todayStr() ? 'is-today' : ''].filter(Boolean).join(' ');
+    return `<button type="button" class="cal-cell ${cls}" data-act="open-day" data-date="${c.ds}" data-mood="${mood}" aria-label="${c.ds}${has ? ' 有记录' : ''}">
+      <span class="cal-num">${c.d}</span>
+      <span class="cal-hl">${esc(hl)}</span>
+      <span class="cal-mood"></span>
+    </button>`;
+  }).join('');
+
+  return `<section class="card span2">
+    <div class="card-head">
+      <h2>${y} 年 ${m} 月</h2>
+      <span class="card-hint">记录 ${monthEntries.length} 天</span>
+      <div class="month-nav">
+        <button class="icon-btn" data-act="prev-month" aria-label="上个月">${icon('left')}</button>
+        <button class="btn ghost" data-act="this-month">本月</button>
+        <button class="icon-btn" data-act="next-month" aria-label="下个月">${icon('right')}</button>
+      </div>
+    </div>
+    <div class="cal-dows">${WEEK_CN.map((d) => `<div class="cal-dow">${d}</div>`).join('')}</div>
+    <div class="cal">${cellHtml}</div>
+  </section>`;
+}
+
+function weekCard() {
+  const monday = mondayOf(todayStr(), app.weekOffset);
+  const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+  app.reviewKey = monday;
+  const entries = days.map((d) => app.db.entries[d]).filter((e) => e && hasContent(e));
+  const moods = entries.map((e) => e.mood).filter(Boolean);
+  const sleeps = entries.map((e) => e.sleep).filter((v) => typeof v === 'number');
+  const exercise = entries.reduce((s, e) => s + (e.exerciseMin || 0), 0);
+  const fin = entries.reduce((acc, e) => {
+    (e.finance.items || []).forEach((t) => { if (t.type === 'income') acc.income += t.amount; else acc.expense += t.amount; });
+    return acc;
+  }, { expense: 0, income: 0 });
+  const review = (app.db.reviews[monday] && app.db.reviews[monday].text) || '';
+  const fmtD = (s) => { const d = parseDate(s); return `${d.getMonth() + 1}月${d.getDate()}日`; };
+
+  return `<section class="card span2">
+    <div class="card-head">
+      <h2>${fmtD(monday)} — ${fmtD(days[6])}</h2>
+      <div class="month-nav">
+        <button class="icon-btn" data-act="prev-week" aria-label="上一周">${icon('left')}</button>
+        <button class="btn ghost" data-act="this-week" ${app.weekOffset === 0 ? 'disabled' : ''}>本周</button>
+        <button class="icon-btn" data-act="next-week" aria-label="下一周" ${app.weekOffset >= 0 ? 'disabled' : ''}>${icon('right')}</button>
+      </div>
+    </div>
+    <div class="stats four" style="margin-top:0">
+      ${statBlock(`${entries.length}/7`, '天', '记录')}
+      ${statBlock(fmt1(avg(moods)), '/5', '平均心情')}
+      ${statBlock(fmt1(avg(sleeps)), '小时', '平均睡眠')}
+      ${statBlock(exercise, '分钟', '运动')}
+    </div>
+    <p class="week-money">本周支出 ${money(fin.expense)} · 结余 ${money(fin.income - fin.expense)}</p>
+    <textarea class="journal" data-bind="review" placeholder="这一周什么做得好？什么卡住了？如果只改一件事，下周改什么？">${esc(review)}</textarea>
+  </section>`;
+}
+
+function trendSection() {
+  const days = [];
+  for (let i = 29; i >= 0; i -= 1) days.push(addDays(todayStr(), -i));
+  const present = recordedEntries();
+  const moods = days.map((d) => { const e = app.db.entries[d]; return e && e.mood ? e.mood : null; });
+  const energies = days.map((d) => { const e = app.db.entries[d]; return e && e.energy ? e.energy : null; });
+  const sleeps = days.map((d) => { const e = app.db.entries[d]; return e && typeof e.sleep === 'number' && e.sleep > 0 ? e.sleep : null; });
+  const exercises = days.map((d) => { const e = app.db.entries[d]; return e && e.exerciseMin ? e.exerciseMin : null; });
+  const sleepVals = sleeps.filter((v) => v != null);
+  const exVals = exercises.filter((v) => v != null);
+
+  return `<section class="card span2">
+    <details class="trend-details">
+      <summary>
+        <span class="more-title">查看趋势</span>
+        <span class="more-hint">最近 30 天 · 心情 / 睡眠 / 运动</span>
+      </summary>
+      <div class="trend-body">
+        <div class="chart-block">
+          <div class="chart-head"><span>心情与精力</span><div class="legend"><span><i style="background:#5E8C70"></i>心情</span><span><i style="background:#C08A4E"></i>精力</span></div></div>
+          <div class="chart">${present.length ? chartLine(days, [{ name: '心情', color: '#5E8C70', values: moods }, { name: '精力', color: '#C08A4E', values: energies }]) : '<p class="empty-note">还没有记录</p>'}</div>
+        </div>
+        <div class="chart-block">
+          <div class="chart-head"><span>睡眠</span><span class="chart-note">虚线为 8 小时</span></div>
+          <div class="chart">${sleepVals.length ? chartBars(days, sleeps, { max: 10, ref: 8, color: '#6C86A7', axisFmt: (v) => (v ? `${v}h` : '0'), title: (i, v) => `${days[i]} 睡眠 ${v} 小时`, label: '睡眠' }) : '<p class="empty-note">还没有睡眠记录</p>'}</div>
+        </div>
+        <div class="chart-block">
+          <div class="chart-head"><span>运动</span><span class="chart-note">分钟</span></div>
+          <div class="chart">${exVals.length ? chartBars(days, exercises, { max: niceMax(Math.max(...exVals), 30), color: '#5E8C70', axisFmt: (v) => String(v), title: (i, v) => `${days[i]} 运动 ${v} 分钟`, label: '运动' }) : '<p class="empty-note">还没有运动记录</p>'}</div>
+        </div>
+      </div>
+    </details>
+  </section>`;
+}
+
+function reviewView() {
+  const prefix = app.month || todayStr().slice(0, 7);
+  const [y, m] = prefix.split('-').map(Number);
+  const monthCount = recordedEntries().filter((e) => e.date.startsWith(prefix)).length;
+  return `${simpleHead(
+    '回顾',
+    `${y} 年 ${m} 月`,
+    `记录 <b>${monthCount}</b> 天 · 连续 <b>${calcStreak()}</b> 天`,
+    gearLink()
+  )}
+  <div class="grid">
+    ${calendarCard(prefix)}
+    ${weekCard()}
+    ${trendSection()}
+  </div>`;
+}
+
 /* ---------------- 视图：设置 ---------------- */
 
-function settingsView() {
+function legacySettingsView() {
   const theme = app.db.settings.theme || 'auto';
   const budget = Number(app.db.settings.budget) || 0;
   const habits = app.db.habits || [];
@@ -1128,13 +1529,78 @@ function settingsView() {
   </div>`;
 }
 
+function settingsView() {
+  const theme = app.db.settings.theme || 'auto';
+  const plan = getPlan();
+  return `${simpleHead('设置', '设置', `日迹 v${APP_VERSION} · 数据只保存在这台手机`, `<a class="btn ghost" href="#/today">返回</a>`)}
+  <div class="grid">
+    <section class="card span2">
+      <div class="card-head"><span class="dot amber"></span><h2>存款计划</h2><span class="card-hint">按你的预算改，改完自动保存</span></div>
+      <div class="plan-form">
+        <label class="field"><span class="label">月收入</span><input type="number" inputmode="numeric" min="0" step="100" data-plan="income" value="${plan.income}" aria-label="月收入"></label>
+        <label class="field"><span class="label">每月储蓄</span><input type="number" inputmode="numeric" min="0" step="100" data-plan="savings" value="${plan.savings}" aria-label="每月储蓄"></label>
+      </div>
+      <div class="plan-form">
+        ${plan.categories.map((c) => `<label class="field"><span class="label">${esc(c.name)}</span><input type="number" inputmode="numeric" min="0" step="50" data-plan="cat:${c.id}" value="${c.budget}" aria-label="${esc(c.name)}预算"></label>`).join('')}
+      </div>
+      <div class="plan-form">
+        <label class="field"><span class="label">开始月份</span><input type="month" data-plan="startMonth" value="${esc(plan.startMonth)}" aria-label="开始月份"></label>
+      </div>
+      <p class="plan-total" data-role="plan-total"></p>
+    </section>
+    <section class="card span2">
+      <div class="card-head"><span class="dot"></span><h2>数据与备份</h2></div>
+      <p class="muted-note">记录保存在这台手机的浏览器里（IndexedDB），不会上传到任何服务器。</p>
+      <p class="path" data-role="storage-info">正在读取存储信息…</p>
+      <p class="path">上次备份：${esc(lastBackupLabel())}</p>
+      <div class="btn-row">
+        <button class="btn primary" data-act="export-json">${icon('download')}导出备份</button>
+        <button class="btn" data-act="export-encrypted">加密备份</button>
+        <button class="btn" data-act="import-json">${icon('upload')}导入备份</button>
+        <button class="btn" data-act="export-md">${icon('download')}导出 Markdown</button>
+        <button class="btn" data-act="persist">申请持久存储</button>
+      </div>
+      <div class="btn-row" style="margin-top:16px">
+        <button class="btn danger" data-act="clear-all">${icon('trash')}清空全部记录</button>
+      </div>
+      <p class="muted-note" style="margin-top:12px">清理浏览器的「网站数据」会删除记录；换手机前先导出备份。</p>
+    </section>
+    <section class="card span2">
+      <div class="card-head"><span class="dot"></span><h2>外观</h2></div>
+      <div class="seg">
+        ${[['auto', '跟随系统'], ['light', '浅色'], ['dark', '深色']].map(([v, l]) => `<button type="button" data-act="theme" data-v="${v}" class="${theme === v ? 'is-on' : ''}">${l}</button>`).join('')}
+      </div>
+    </section>
+    ${!isStandalone() && window.matchMedia('(max-width: 900px)').matches ? `<section class="card span2">
+      <div class="card-head"><span class="dot"></span><h2>安装到手机</h2></div>
+      <p class="muted-note">用 Chrome 打开后点下面的按钮；没有反应就点浏览器菜单 →「安装应用」。</p>
+      <div class="btn-row"><button class="btn primary" data-act="install">${icon('plus')}安装到主屏幕</button></div>
+    </section>` : ''}
+    <section class="card span2">
+      <div class="card-head"><span class="dot"></span><h2>关于</h2></div>
+      <p class="muted-note about-text">
+        日迹是一个「手机本地优先」的记录工具：数据存在这台设备的 IndexedDB 里，不上传、不联网、不需要账号。<br>
+        清理浏览器数据会丢失记录，请定期备份；加密备份的密码丢了无法恢复。
+      </p>
+    </section>
+  </div>`;
+}
+
+function updatePlanTotal() {
+  const el = $('[data-role="plan-total"]');
+  if (!el) return;
+  const plan = getPlan();
+  const budgets = plan.categories.reduce((s, c) => s + c.budget, 0);
+  const total = budgets + plan.savings;
+  const diff = total - plan.income;
+  el.textContent = `支出预算 ${money(budgets)} + 储蓄 ${money(plan.savings)} = ${money(total)}${Math.abs(diff) < 0.5 ? ' · 与月收入一致' : `，比月收入${diff > 0 ? '多' : '少'} ${money(Math.abs(diff))}`}`;
+}
+
 /* ---------------- 渲染 ---------------- */
 
 const VIEWS = {
   today: todayView,
-  calendar: calendarView,
-  finance: financeView,
-  trend: trendView,
+  money: moneyView,
   review: reviewView,
   settings: settingsView,
 };
@@ -1154,7 +1620,10 @@ function render() {
   main.classList.add('fade-in');
   $$('textarea', main).forEach(autoGrow);
   setStatus(app.status);
-  if (app.view === 'settings') refreshStorage();
+  if (app.view === 'settings') {
+    refreshStorage();
+    updatePlanTotal();
+  }
 }
 
 function autoGrow(el) {
@@ -1177,6 +1646,27 @@ let searchTimer = null;
 function onInput(ev) {
   const t = ev.target;
   if (!t || !t.dataset) return;
+
+  if (t.dataset.plan) {
+    const plan = getPlan();
+    const key = t.dataset.plan;
+    if (key === 'startMonth') {
+      if (/^\d{4}-\d{2}$/.test(t.value)) plan.startMonth = t.value;
+    } else {
+      const v = parseFloat(t.value);
+      const n = isFinite(v) && v >= 0 ? Math.round(v * 100) / 100 : 0;
+      if (key === 'income') plan.income = n;
+      else if (key === 'savings') plan.savings = n;
+      else if (key.startsWith('cat:')) {
+        const cat = plan.categories.find((c) => c.id === key.slice(4));
+        if (cat) cat.budget = n;
+      }
+    }
+    app.db.settings.plan = plan;
+    scheduleSave();
+    updatePlanTotal();
+    return;
+  }
 
   if (t.id === 'search') {
     app.search = t.value;
@@ -1762,12 +2252,14 @@ function applyHash() {
   } else if (view === 'today') {
     app.date = todayStr();
   }
+  const aliases = { calendar: 'review', trend: 'review', finance: 'money' };
+  if (aliases[view]) view = aliases[view];
   if (!VIEWS[view]) {
     view = 'today';
     app.date = todayStr();
   }
   app.view = view;
-  if ((view === 'calendar' || view === 'finance') && !app.month) {
+  if ((view === 'money' || view === 'review') && !app.month) {
     app.month = todayStr().slice(0, 7);
   }
   if (view === 'review') app.weekOffset = 0;
@@ -1801,10 +2293,6 @@ async function boot() {
     app.db = normalizeDb({});
     toast('读取本地数据失败，已从空白开始');
   }
-
-  app.compact = typeof app.db.settings.compact === 'boolean'
-    ? app.db.settings.compact
-    : window.matchMedia('(max-width: 760px)').matches;
 
   applyTheme();
   document.addEventListener('click', onClick);
@@ -1848,6 +2336,14 @@ async function boot() {
   }
 
   if ('serviceWorker' in navigator) {
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloading) return;
+      reloading = true;
+      const go = () => window.location.reload();
+      if (app.dirty) flush().finally(go);
+      else go();
+    });
     navigator.serviceWorker.register('./sw.js').catch((err) => console.warn('Service Worker 注册失败', err));
   }
 
