@@ -36,6 +36,7 @@ const PLAN_CATEGORIES = [
   { id: 'other', name: '日用品、社交及其他', budget: 500 },
 ];
 const EXPENSE_CATS = PLAN_CATEGORIES.map((c) => c.name);
+const INCOME_CATS = ['工资', '奖金', '兼职', '理财', '红包', '其他'];
 const CATEGORY_GROUP = {
   '房租及水电': 'housing',
   '居住': 'housing',
@@ -51,7 +52,7 @@ const CATEGORY_GROUP = {
   '旅行': 'other',
   '其他': 'other',
 };
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.4.0';
 
 function esc(v) {
   return String(v ?? '').replace(/[&<>"']/g, (c) => ({
@@ -772,19 +773,25 @@ function financeCard(e) {
 }
 
 function financeInner(e) {
-  const items = ((e.finance && e.finance.items) || []).filter((t) => t.type === 'expense');
+  const items = (e.finance && e.finance.items) || [];
   const recent = items.slice(-3);
-  const expense = items.reduce((s, t) => s + t.amount, 0);
+  const expense = items.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  const income = items.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  const cats = app.finType === 'income' ? INCOME_CATS : EXPENSE_CATS;
   return `<div class="card-head">
-      <span class="dot money"></span><h2>支出</h2>
-      <span class="money-sum">今天 <b>${money(expense)}</b></span>
+      <span class="dot money"></span><h2>收支</h2>
+      <span class="money-sum">支出 <b>${money(expense)}</b> · 收入 <b>${money(income)}</b></span>
       <span class="card-hint">${items.length ? `${items.length} 笔` : '记下每一笔，月底才有数'}</span>
     </div>
     ${items.length ? `<div class="fin-list">${recent.map((t) => finRow(t, e.date)).join('')}</div>` : ''}
     ${items.length > 3 ? `<a class="fin-more" href="#/money">还有 ${items.length - 3} 笔，去账本看</a>` : ''}
     <form class="fin-add" autocomplete="off">
+      <div class="seg tiny" role="group" aria-label="收支类型">
+        <button type="button" data-act="fin-type" data-v="expense" class="${app.finType === 'expense' ? 'is-on' : ''}">支出</button>
+        <button type="button" data-act="fin-type" data-v="income" class="${app.finType === 'income' ? 'is-on' : ''}">收入</button>
+      </div>
       <input id="fin-amount" type="number" inputmode="decimal" min="0" max="9999999" step="0.01" placeholder="金额" aria-label="金额">
-      <select id="fin-cat" aria-label="分类">${EXPENSE_CATS.map((c) => `<option>${c}</option>`).join('')}</select>
+      <select id="fin-cat" aria-label="分类">${cats.map((c) => `<option>${c}</option>`).join('')}</select>
       <input id="fin-note" type="text" maxlength="40" placeholder="备注（可选）" aria-label="备注">
       <button class="btn primary" type="submit">记一笔</button>
     </form>`;
@@ -818,9 +825,9 @@ function addTransaction() {
   if (!e.finance) e.finance = { items: [] };
   e.finance.items.push({
     id: Math.random().toString(36).slice(2, 9),
-    type: 'expense',
+    type: app.finType,
     amount,
-    category: ($('#fin-cat') || {}).value || EXPENSE_CATS[0],
+    category: ($('#fin-cat') || {}).value || (app.finType === 'income' ? INCOME_CATS[0] : EXPENSE_CATS[0]),
     note: ($('#fin-note') || {}).value.trim(),
   });
   touch(e);
@@ -834,7 +841,7 @@ function addTransaction() {
     const next = $('#fin-amount');
     if (next) next.focus();
   }
-  toast('已记一笔支出');
+  toast(app.finType === 'income' ? '已记一笔收入' : '已记一笔支出');
 }
 
 function deleteTransaction(date, id) {
@@ -1067,11 +1074,16 @@ function planSummary(prefix) {
     spent[id] = (spent[id] || 0) + t.amount;
   });
   const expense = expenses.reduce((s, t) => s + t.amount, 0);
+  const income = items.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const budgetTotal = plan.categories.reduce((s, c) => s + c.budget, 0);
+  const effectiveIncome = income > 0 ? income : plan.income;
   return {
     plan,
-    items: expenses,
+    items,
     expense,
+    income,
+    effectiveIncome,
+    saved: effectiveIncome - expense,
     spent,
     budgetTotal,
     target: plan.savings,
@@ -1088,7 +1100,7 @@ function planCard(s) {
   const total = s.budgetTotal + s.target;
   const status = over
     ? `超出预算 ${money(-remaining)}，本月只能存 ${money(Math.max(0, s.target + remaining))}`
-    : `预算内 · 按计划存 ${money(s.target)}`;
+    : `预算内 · ${s.income > 0 ? `本月可存 ${money(s.saved)}` : `按计划存 ${money(s.target)}`}`;
   return `<section class="card span2 plan-card">
     <div class="card-head">
       <span class="dot amber"></span><h2>本月预算</h2>
@@ -1101,7 +1113,7 @@ function planCard(s) {
         <span class="plan-target">预算 ${money(s.budgetTotal)}</span>
       </div>
       <div class="plan-progress ${over ? 'over' : ''}"><i style="width:${pct.toFixed(1)}%"></i></div>
-      <p class="plan-note">${s.hasData ? `已花 ${money(used)} / 预算 ${money(s.budgetTotal)}` : '记下这个月的第一笔支出，开始跟踪预算。'}</p>
+      <p class="plan-note">${s.hasData ? `已花 ${money(used)} / 预算 ${money(s.budgetTotal)}${s.income > 0 ? ` · 收入 ${money(s.income)}` : ''}` : '记下这个月的第一笔支出，开始跟踪预算。'}</p>
       <p class="plan-status ${over ? 'over' : ''}">${status}</p>
     </div>
     <div class="plan-cats">
@@ -1122,26 +1134,33 @@ function planCard(s) {
 }
 
 function moneyAddForm() {
+  const cats = app.finType === 'income' ? INCOME_CATS : EXPENSE_CATS;
   return `<form class="fin-add money-add" autocomplete="off">
+    <div class="seg tiny" role="group" aria-label="收支类型">
+      <button type="button" data-act="fin-type" data-v="expense" class="${app.finType === 'expense' ? 'is-on' : ''}">支出</button>
+      <button type="button" data-act="fin-type" data-v="income" class="${app.finType === 'income' ? 'is-on' : ''}">收入</button>
+    </div>
     <input id="fin-amount" type="number" inputmode="decimal" min="0" max="9999999" step="0.01" placeholder="金额" aria-label="金额">
-    <select id="fin-cat" aria-label="分类">${EXPENSE_CATS.map((c) => `<option>${c}</option>`).join('')}</select>
+    <select id="fin-cat" aria-label="分类">${cats.map((c) => `<option>${c}</option>`).join('')}</select>
     <input id="fin-note" type="text" maxlength="40" placeholder="备注（可选）" aria-label="备注">
     <button class="btn primary" type="submit">记一笔</button>
   </form>`;
 }
 
 function moneyGroups(items) {
+  const filtered = app.finFilter === 'all' ? items : items.filter((t) => t.type === app.finFilter);
   const groups = {};
-  items.forEach((t) => { (groups[t.date] = groups[t.date] || []).push(t); });
+  filtered.forEach((t) => { (groups[t.date] = groups[t.date] || []).push(t); });
   const groupList = Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
   if (!groupList.length) return '<p class="empty-note">还没有记录，先记一笔</p>';
   return groupList.map(([date, list]) => {
     const d = parseDate(date);
-    const exp = list.reduce((s, t) => s + t.amount, 0);
+    const exp = list.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    const inc = list.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     return `<div class="fin-day">
       <div class="fin-day-head">
         <button type="button" data-act="open-day" data-date="${date}">${d.getMonth() + 1} 月 ${d.getDate()} 日 · ${WEEKDAYS[d.getDay()]}</button>
-        <span class="totals">支出 ${money(exp)}</span>
+        <span class="totals">${exp ? `支出 ${money(exp)}` : ''}${exp && inc ? ' · ' : ''}${inc ? `收入 ${money(inc)}` : ''}</span>
       </div>
       ${list.map((t) => finRow(t, date)).join('')}
     </div>`;
@@ -1157,7 +1176,7 @@ function moneyView() {
   return `${simpleHead(
     '账本',
     `${y} 年 ${m} 月`,
-    `已花 <b>${money(s.expense)}</b> · 预算 <b>${money(s.budgetTotal)}</b> · 还能花 <b>${money(remaining)}</b>`,
+    `收入 <b>${money(s.income)}</b> · 支出 <b>${money(s.expense)}</b> · 结余 <b>${money(s.income - s.expense)}</b>`,
     `<button class="icon-btn" data-act="prev-month" aria-label="上个月">${icon('left')}</button>
      <button class="btn ghost" data-act="this-month">本月</button>
      <button class="icon-btn" data-act="next-month" aria-label="下个月">${icon('right')}</button>
@@ -1166,7 +1185,11 @@ function moneyView() {
   <div class="grid">
     ${planCard(s)}
     <section class="card span2">
-      <div class="card-head"><span class="dot"></span><h2>支出明细</h2><span class="card-hint">${s.items.length} 笔</span></div>
+      <div class="card-head"><span class="dot"></span><h2>收支明细</h2>
+        <div class="seg tiny" style="margin-left:auto">
+          ${[['all', '全部'], ['expense', '支出'], ['income', '收入']].map(([v, l]) => `<button type="button" data-act="fin-filter" data-v="${v}" class="${app.finFilter === v ? 'is-on' : ''}">${l}</button>`).join('')}
+        </div>
+      </div>
       ${moneyAddForm()}
       ${moneyGroups(s.items)}
     </section>
@@ -1375,7 +1398,10 @@ function weekCard() {
   const moods = entries.map((e) => e.mood).filter(Boolean);
   const sleeps = entries.map((e) => e.sleep).filter((v) => typeof v === 'number');
   const exercise = entries.reduce((s, e) => s + (e.exerciseMin || 0), 0);
-  const fin = entries.reduce((s, e) => s + (e.finance.items || []).filter((t) => t.type === 'expense').reduce((x, t) => x + t.amount, 0), 0);
+  const fin = entries.reduce((acc, e) => {
+    (e.finance.items || []).forEach((t) => { if (t.type === 'income') acc.income += t.amount; else acc.expense += t.amount; });
+    return acc;
+  }, { expense: 0, income: 0 });
   const review = (app.db.reviews[monday] && app.db.reviews[monday].text) || '';
   const fmtD = (s) => { const d = parseDate(s); return `${d.getMonth() + 1}月${d.getDate()}日`; };
 
@@ -1394,7 +1420,7 @@ function weekCard() {
       ${statBlock(fmt1(avg(sleeps)), '小时', '平均睡眠')}
       ${statBlock(exercise, '分钟', '运动')}
     </div>
-    <p class="week-money">本周支出 ${money(fin)}</p>
+    <p class="week-money">本周收入 ${money(fin.income)} · 支出 ${money(fin.expense)} · 结余 ${money(fin.income - fin.expense)}</p>
     <textarea class="journal" data-bind="review" placeholder="这一周什么做得好？什么卡住了？如果只改一件事，下周改什么？">${esc(review)}</textarea>
   </section>`;
 }
@@ -1496,6 +1522,7 @@ function legacySettingsView() {
         <button class="btn" data-act="import-json">${icon('upload')}导入备份</button>
         <button class="btn" data-act="export-md">${icon('download')}导出 Markdown</button>
         <button class="btn" data-act="persist">申请持久存储</button>
+        <button class="btn" data-act="check-update">${icon('refresh')}检查更新</button>
       </div>
       <div class="btn-row" style="margin-top:16px">
         <button class="btn danger" data-act="clear-all">${icon('trash')}清空全部记录</button>
@@ -1539,6 +1566,7 @@ function settingsView() {
         <button class="btn" data-act="import-json">${icon('upload')}导入备份</button>
         <button class="btn" data-act="export-md">${icon('download')}导出 Markdown</button>
         <button class="btn" data-act="persist">申请持久存储</button>
+        <button class="btn" data-act="check-update">${icon('refresh')}检查更新</button>
       </div>
       <div class="btn-row" style="margin-top:16px">
         <button class="btn danger" data-act="clear-all">${icon('trash')}清空全部记录</button>
@@ -1820,7 +1848,8 @@ async function onClick(ev) {
     }
     case 'fin-type':
       app.finType = el.dataset.v;
-      refreshFinance();
+      if (app.view === 'money') render();
+      else refreshFinance();
       break;
     case 'fin-del':
       deleteTransaction(el.dataset.date, el.dataset.id);
@@ -1898,6 +1927,9 @@ async function onClick(ev) {
       break;
     case 'persist':
       await enablePersist();
+      break;
+    case 'check-update':
+      await checkForUpdate();
       break;
     case 'toggle-detail':
       toggleDetail();
@@ -2173,6 +2205,27 @@ async function enablePersist() {
   refreshStorage();
 }
 
+async function checkForUpdate() {
+  if (!('serviceWorker' in navigator)) {
+    toast('当前浏览器不支持自动更新');
+    return;
+  }
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) {
+      toast('请通过线上地址打开应用再检查');
+      return;
+    }
+    await reg.update();
+    toast('已检查更新；有新版本会自动刷新');
+    setTimeout(() => {
+      if (reg.waiting) reg.waiting.postMessage('SKIP_WAITING');
+    }, 500);
+  } catch (err) {
+    toast('检查失败，请确认网络（可能需要 VPN）');
+  }
+}
+
 function isStandalone() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
@@ -2324,7 +2377,19 @@ async function boot() {
       if (app.dirty) flush().finally(go);
       else go();
     });
-    navigator.serviceWorker.register('./sw.js').catch((err) => console.warn('Service Worker 注册失败', err));
+    navigator.serviceWorker.register('./sw.js?v=1.4.0', { updateViaCache: 'none' }).then((reg) => {
+      let last = 0;
+      const check = () => {
+        if (Date.now() - last < 30000) return;
+        last = Date.now();
+        reg.update().catch(() => {});
+      };
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') check();
+      });
+      window.addEventListener('online', check);
+      setTimeout(check, 3000);
+    }).catch((err) => console.warn('Service Worker 注册失败', err));
   }
 
   if (!location.hash) history.replaceState(null, '', '#/today');

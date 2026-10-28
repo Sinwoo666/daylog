@@ -2,13 +2,13 @@
    让安装后的应用在断网时也能打开。
    每次发布新版本时，把 VERSION 加一，旧缓存会自动清理。 */
 
-const VERSION = 'daylog-v4';
+const VERSION = 'daylog-v5';
 const ASSETS = [
   './',
   './index.html',
-  './assets/style.css',
-  './assets/app.js',
-  './assets/db.js',
+  './assets/style.css?v=1.4.0',
+  './assets/app.js?v=1.4.0',
+  './assets/db.js?v=1.4.0',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
